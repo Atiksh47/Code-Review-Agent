@@ -1,0 +1,74 @@
+# Code Review Agent Configuration
+
+# AI Model Settings
+models:
+  ollama:
+    primary: "llama3.2"
+    code_specialist: "codellama"
+    host: "http://localhost:11434"
+  
+  huggingface:
+    enabled: true
+    model_name: "microsoft/DialoGPT-medium"
+    max_length: 512
+
+# Code Analysis Settings
+analysis:
+  languages:
+    - python
+    - javascript
+    - java
+    - cpp
+    - go
+    - rust
+  
+  quality_checks:
+    complexity_threshold: 10
+    max_function_length: 50
+    max_file_length: 500
+  
+  security_checks:
+    enabled: true
+    severity_levels: ["HIGH", "MEDIUM", "LOW"]
+    check_secrets: true
+    check_dependencies: true
+
+# Git Integration
+git:
+  enabled: true
+  auto_review_commits: true
+  review_branches: ["main", "develop"]
+  exclude_patterns:
+    - "*.md"
+    - "*.txt"
+    - "*.json"
+    - "*.yaml"
+    - "*.yml"
+
+# Output Settings
+output:
+  console: true
+  json: true
+  html: true
+  web_interface: true
+  port: 5000
+
+# Review Criteria
+criteria:
+  code_quality:
+    - "Check for code smells"
+    - "Verify naming conventions"
+    - "Assess complexity"
+    - "Review documentation"
+  
+  security:
+    - "Scan for hardcoded secrets"
+    - "Check for SQL injection"
+    - "Verify input validation"
+    - "Review authentication"
+  
+  performance:
+    - "Identify bottlenecks"
+    - "Check for memory leaks"
+    - "Review algorithm efficiency"
+    - "Suggest optimizations"
