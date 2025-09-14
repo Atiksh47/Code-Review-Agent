@@ -1,5 +1,20 @@
 """
-Core Code Review Agent implementation
+Core Code Review Agent Implementation
+
+This module contains the main CodeReviewAgent class that orchestrates the entire
+code review process. It combines multiple analysis engines (static analysis,
+security scanning, AI-powered analysis) to provide comprehensive code review
+capabilities.
+
+Key Responsibilities:
+- Initialize and coordinate all analysis components
+- Orchestrate the code review workflow
+- Integrate AI models for intelligent analysis
+- Generate comprehensive reports
+- Provide user-friendly result display
+
+Author: Atiksh Kotikalapudi
+Version: 1.0.0
 """
 
 import asyncio
@@ -11,53 +26,101 @@ from rich.console import Console
 from rich.table import Table
 from rich.panel import Panel
 
-from langchain_community.llms import Ollama
-from langchain_core.messages import HumanMessage, SystemMessage
-from langchain.prompts import PromptTemplate
-from transformers import pipeline
+# AI/ML Libraries
+from langchain_community.llms import Ollama              # Local AI model integration
+from langchain_core.messages import HumanMessage, SystemMessage  # AI message handling
+from langchain.prompts import PromptTemplate            # AI prompt management
+from transformers import pipeline                       # Hugging Face transformers
 
-from config import Config
-from code_analyzer import CodeAnalyzer
-from security_scanner import SecurityScanner
-from git_integration import GitIntegration
-from report_generator import ReportGenerator
+# Internal modules
+from config import Config                               # Configuration management
+from code_analyzer import CodeAnalyzer                 # Static code analysis
+from security_scanner import SecurityScanner           # Security vulnerability detection
+from git_integration import GitIntegration             # Git repository analysis
+from report_generator import ReportGenerator           # Report generation
 
+# Initialize Rich console for beautiful terminal output
 console = Console()
 
 class CodeReviewAgent:
-    """Main code review agent class"""
+    """
+    Main Code Review Agent class that orchestrates comprehensive code analysis.
+    
+    This class serves as the central coordinator for all code analysis activities.
+    It initializes and manages multiple analysis engines, AI models, and reporting
+    components to provide a complete code review solution.
+    
+    Attributes:
+        config (Config): Configuration object containing all settings
+        console (Console): Rich console for formatted output
+        code_analyzer (CodeAnalyzer): Static code analysis engine
+        security_scanner (SecurityScanner): Security vulnerability detector
+        git_integration (GitIntegration): Git repository analysis tools
+        report_generator (ReportGenerator): Report generation system
+        ollama_llm (Ollama): Primary AI model for general analysis
+        code_llm (Ollama): Specialized AI model for code analysis
+        hf_pipeline: Hugging Face transformers pipeline (optional)
+    """
     
     def __init__(self, config: Config):
+        """
+        Initialize the Code Review Agent with all required components.
+        
+        This constructor sets up the entire analysis pipeline including:
+        - AI model initialization (Ollama, Hugging Face)
+        - Analysis engine setup (code, security, Git, reporting)
+        - Prompt template creation for AI analysis
+        
+        Args:
+            config (Config): Configuration object with all settings
+        """
         self.config = config
         self.console = Console()
         
-        # Initialize AI models
+        # Initialize AI models for intelligent analysis
         self._init_models()
         
-        # Initialize analysis components
-        self.code_analyzer = CodeAnalyzer(config)
-        self.security_scanner = SecurityScanner(config)
-        self.git_integration = GitIntegration(config)
-        self.report_generator = ReportGenerator(config)
+        # Initialize all analysis components
+        self.code_analyzer = CodeAnalyzer(config)        # Static code analysis
+        self.security_scanner = SecurityScanner(config)   # Security scanning
+        self.git_integration = GitIntegration(config)     # Git repository analysis
+        self.report_generator = ReportGenerator(config)   # Report generation
         
-        # Initialize review prompts
+        # Initialize AI prompt templates for consistent analysis
         self._init_prompts()
     
     def _init_models(self):
-        """Initialize AI models"""
+        """
+        Initialize AI models for intelligent code analysis.
+        
+        This method sets up the AI infrastructure including:
+        - Primary Ollama model for general analysis tasks
+        - Specialized code model for code-specific analysis
+        - Optional Hugging Face transformers for specific tasks
+        
+        The models are configured based on settings in config.yaml and run
+        locally to ensure privacy and performance.
+        
+        Raises:
+            Exception: If model initialization fails (e.g., Ollama not running)
+        """
         try:
-            # Initialize Ollama models
+            # Initialize primary Ollama model for general analysis
+            # This model handles overall code quality and best practices
             self.ollama_llm = Ollama(
-                model=self.config.primary_model,
-                base_url=self.config.ollama_host
+                model=self.config.primary_model,        # e.g., "llama3.2"
+                base_url=self.config.ollama_host        # e.g., "http://localhost:11434"
             )
             
+            # Initialize specialized code model for code-specific analysis
+            # This model is optimized for understanding programming languages
             self.code_llm = Ollama(
-                model=self.config.code_model,
+                model=self.config.code_model,           # e.g., "codellama"
                 base_url=self.config.ollama_host
             )
             
-            # Initialize Hugging Face model for specific tasks
+            # Initialize Hugging Face model for specific tasks (optional)
+            # This provides additional AI capabilities for specialized analysis
             if self.config.models.huggingface.get('enabled', False):
                 self.hf_pipeline = pipeline(
                     "text-generation",
@@ -70,6 +133,8 @@ class CodeReviewAgent:
             self.console.print("✅ AI models initialized", style="green")
             
         except Exception as e:
+            # If AI models fail to initialize, the system can still work
+            # with static analysis tools, but AI features will be unavailable
             self.console.print(f"❌ Error initializing models: {e}", style="red")
             raise
     
@@ -116,45 +181,79 @@ class CodeReviewAgent:
         )
     
     async def review_code(self, path: Path) -> Dict[str, Any]:
-        """Main method to review code"""
+        """
+        Main method to perform comprehensive code review.
+        
+        This is the primary entry point for code analysis. It orchestrates the entire
+        review process by:
+        1. Discovering all code files in the target path
+        2. Running multiple analysis types on each file
+        3. Aggregating results and generating summary statistics
+        4. Returning structured results for display or further processing
+        
+        Args:
+            path (Path): Path to file or directory to analyze
+            
+        Returns:
+            Dict[str, Any]: Comprehensive review results including:
+                - timestamp: When the analysis was performed
+                - path: Original path analyzed
+                - files_reviewed: Number of files processed
+                - issues_found: Total issues discovered
+                - security_issues: Security vulnerabilities found
+                - quality_issues: Code quality problems found
+                - performance_issues: Performance bottlenecks found
+                - files: Detailed results for each file
+                - summary: Aggregated statistics and breakdown
+        """
         self.console.print(f"🔍 Starting code review for: {path}", style="blue")
         
-        # Initialize results structure
+        # Initialize comprehensive results structure
+        # This will hold all analysis results and metadata
         results = {
-            "timestamp": datetime.now().isoformat(),
-            "path": str(path),
-            "files_reviewed": 0,
-            "issues_found": 0,
-            "security_issues": 0,
-            "quality_issues": 0,
-            "performance_issues": 0,
-            "files": []
+            "timestamp": datetime.now().isoformat(),    # Analysis timestamp
+            "path": str(path),                          # Original target path
+            "files_reviewed": 0,                       # Counter for processed files
+            "issues_found": 0,                         # Total issues discovered
+            "security_issues": 0,                      # Security vulnerabilities
+            "quality_issues": 0,                       # Code quality problems
+            "performance_issues": 0,                   # Performance issues
+            "files": []                                # Detailed file results
         }
         
         try:
-            # Get files to review
+            # Step 1: Discover all files to analyze
+            # This handles both single files and directory trees
             files_to_review = self._get_files_to_review(path)
             self.console.print(f"📁 Found {len(files_to_review)} files to review", style="blue")
             
-            # Review each file
+            # Step 2: Analyze each file individually
+            # This runs all analysis types (quality, security, performance, AI)
             for file_path in files_to_review:
                 self.console.print(f"🔍 Reviewing: {file_path.name}", style="yellow")
                 
+                # Perform comprehensive analysis on this file
                 file_results = await self._review_file(file_path)
+                
+                # Add file results to overall results
                 results["files"].append(file_results)
                 results["files_reviewed"] += 1
+                
+                # Aggregate issue counts for summary statistics
                 results["issues_found"] += len(file_results.get("issues", []))
                 results["security_issues"] += len(file_results.get("security_issues", []))
                 results["quality_issues"] += len(file_results.get("quality_issues", []))
                 results["performance_issues"] += len(file_results.get("performance_issues", []))
             
-            # Generate summary
+            # Step 3: Generate comprehensive summary
+            # This creates high-level statistics and breakdowns
             results["summary"] = self._generate_summary(results)
             
             self.console.print("✅ Code review completed", style="green")
             return results
             
         except Exception as e:
+            # Handle any errors during the review process gracefully
             self.console.print(f"❌ Error during code review: {e}", style="red")
             results["error"] = str(e)
             return results
