@@ -223,3 +223,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 - [LangChain](https://langchain.com/) for AI integration
 - [Rich](https://rich.readthedocs.io/) for beautiful console output
 - [Flask](https://flask.palletsprojects.com/) for web interface
+
+
